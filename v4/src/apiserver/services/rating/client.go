@@ -16,6 +16,7 @@ import (
 	"github.com/migregal/bmstu-iu7-ds-lab2/pkg/circuitbreaker"
 	"github.com/migregal/bmstu-iu7-ds-lab2/pkg/readiness"
 	"github.com/migregal/bmstu-iu7-ds-lab2/pkg/readiness/httpprober"
+	"github.com/migregal/bmstu-iu7-ds-lab2/pkg/retryer"
 	v1 "github.com/migregal/bmstu-iu7-ds-lab2/rating/api/http/v1"
 )
 
@@ -23,10 +24,16 @@ const probeKey = "http-rating-client"
 
 var ErrInvalidStatusCode = errors.New("invalid status code")
 
+type ratingChange struct {
+	username string
+	diff     int
+}
+
 type Client struct {
 	lg *slog.Logger
 
-	cb *circuitbreaker.Client
+	cb      *circuitbreaker.Client
+	retryer *retryer.Client[ratingChange]
 
 	conn *resty.Client
 }
@@ -41,9 +48,10 @@ func New(lg *slog.Logger, cfg rating.Config, probe *readiness.Probe) (*Client, e
 		SetBaseURL(fmt.Sprintf("http://%s", net.JoinHostPort(cfg.Host, cfg.Port)))
 
 	c := Client{
-		lg:   lg,
-		cb:   circuitbreaker.New(cfg.MaxFails),
-		conn: client,
+		lg:      lg,
+		cb:      circuitbreaker.New(cfg.MaxFails),
+		retryer: retryer.New[ratingChange](),
+		conn:    client,
 	}
 
 	go httpprober.New(lg, client).Ping(probeKey, probe)
@@ -104,12 +112,25 @@ func (c *Client) UpdateUserRating(
 	if err != nil {
 		c.cb.Inc("get_user_rating")
 
+		c.retryer.Append(ratingChange{
+			username: username,
+			diff:     diff,
+		})
+		c.retryer.Start(c.retryUpdate)
+
 		return err
 	}
 
 	c.cb.Release("get_user_rating")
 
 	return nil
+}
+
+func (c *Client) retryUpdate(v ratingChange) {
+	err := c.updateUserRating(context.Background(), v.username, v.diff)
+	if err != nil {
+		c.retryer.Append(v)
+	}
 }
 
 func (c *Client) updateUserRating(
