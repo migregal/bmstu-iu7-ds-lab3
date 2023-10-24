@@ -30,6 +30,7 @@ func (c *Client[T]) Start(f func(T)) {
 
 		if len(c.queue) == 0 {
 			c.mx.Unlock()
+
 			return
 		}
 
@@ -45,13 +46,10 @@ func (c *Client[T]) Start(f func(T)) {
 		go func() {
 			ticker := time.NewTicker(time.Second)
 			for {
-				select {
-				case <-ticker.C:
-				}
+				<-ticker.C
 
 				try()
 			}
 		}()
 	})
-
 }

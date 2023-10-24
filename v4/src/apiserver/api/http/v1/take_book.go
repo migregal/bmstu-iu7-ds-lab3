@@ -3,6 +3,7 @@ package v1
 import (
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
 	"time"
 
@@ -47,6 +48,11 @@ func (a *api) TakeBook(c echo.Context, req TakeBookRequest) error {
 		c.Request().Context(), req.Username, req.LibraryID, req.BookID, req.End.Time,
 	)
 	if err != nil {
+		var dnsError *net.DNSError
+		if errors.As(err, &dnsError) {
+			return c.NoContent(http.StatusServiceUnavailable)
+		}
+
 		status := http.StatusInternalServerError
 		if errors.Is(err, core.ErrInsufficientRating) {
 			status = http.StatusPreconditionFailed

@@ -28,7 +28,7 @@ var ErrInvalidStatusCode = errors.New("invalid status code")
 type Client struct {
 	lg *slog.Logger
 
-	cb      *circuitbreaker.Client
+	cb *circuitbreaker.Client
 
 	conn *resty.Client
 }
@@ -43,9 +43,9 @@ func New(lg *slog.Logger, cfg library.Config, probe *readiness.Probe) (*Client, 
 		SetBaseURL(fmt.Sprintf("http://%s", net.JoinHostPort(cfg.Host, cfg.Port)))
 
 	c := Client{
-		lg:      lg,
-		cb:      circuitbreaker.New(cfg.MaxFails),
-		conn:    client,
+		lg:   lg,
+		cb:   circuitbreaker.New(cfg.MaxFails),
+		conn: client,
 	}
 
 	go httpprober.New(lg, client).Ping(probeKey, probe)

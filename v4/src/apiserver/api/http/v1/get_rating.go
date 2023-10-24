@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"errors"
+	"net"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -17,6 +19,11 @@ type RatingResponse struct {
 func (a *api) GetRating(c echo.Context, req RatingRequest) error {
 	data, err := a.core.GetUserRating(c.Request().Context(), req.Username)
 	if err != nil {
+		var dnsError *net.DNSError
+		if errors.As(err, &dnsError) {
+			return c.NoContent(http.StatusServiceUnavailable)
+		}
+
 		return c.NoContent(http.StatusInternalServerError)
 	}
 

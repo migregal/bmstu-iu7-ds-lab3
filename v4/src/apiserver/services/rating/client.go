@@ -104,24 +104,23 @@ func (c *Client) getUserRating(
 func (c *Client) UpdateUserRating(
 	ctx context.Context, username string, diff int,
 ) error {
-	if c.cb.Check("get_user_rating") {
+	if c.cb.Check("update_user_rating") {
 		return circuitbreaker.ErrSystemFails
 	}
 
 	err := c.updateUserRating(ctx, username, diff)
-	if err != nil {
-		c.cb.Inc("get_user_rating")
+	if err == nil {
+		c.cb.Release("update_user_rating")
+	} else {
+		c.cb.Inc("update_user_rating")
+		c.lg.Warn("failed to update rating", "err", err, "username", username)
 
 		c.retryer.Append(ratingChange{
 			username: username,
 			diff:     diff,
 		})
 		c.retryer.Start(c.retryUpdate)
-
-		return err
 	}
-
-	c.cb.Release("get_user_rating")
 
 	return nil
 }
