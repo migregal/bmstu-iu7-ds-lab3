@@ -13,6 +13,7 @@ import (
 	"github.com/go-resty/resty/v2"
 
 	"github.com/migregal/bmstu-iu7-ds-lab2/apiserver/core/ports/rating"
+	"github.com/migregal/bmstu-iu7-ds-lab2/pkg/circuitbreaker"
 	"github.com/migregal/bmstu-iu7-ds-lab2/pkg/readiness"
 	"github.com/migregal/bmstu-iu7-ds-lab2/pkg/readiness/httpprober"
 	v1 "github.com/migregal/bmstu-iu7-ds-lab2/rating/api/http/v1"
@@ -24,6 +25,8 @@ var ErrInvalidStatusCode = errors.New("invalid status code")
 
 type Client struct {
 	lg *slog.Logger
+
+	cb *circuitbreaker.Client
 
 	conn *resty.Client
 }
@@ -39,6 +42,7 @@ func New(lg *slog.Logger, cfg rating.Config, probe *readiness.Probe) (*Client, e
 
 	c := Client{
 		lg:   lg,
+		cb:   circuitbreaker.New(cfg.MaxFails),
 		conn: client,
 	}
 
@@ -47,7 +51,27 @@ func New(lg *slog.Logger, cfg rating.Config, probe *readiness.Probe) (*Client, e
 	return &c, nil
 }
 
+// nolint: dupl
 func (c *Client) GetUserRating(
+	ctx context.Context, username string,
+) (rating.Rating, error) {
+	if c.cb.Check("get_user_rating") {
+		return rating.Rating{}, circuitbreaker.ErrSystemFails
+	}
+
+	res, err := c.getUserRating(ctx, username)
+	if err != nil {
+		c.cb.Inc("get_user_rating")
+
+		return rating.Rating{}, err
+	}
+
+	c.cb.Release("get_user_rating")
+
+	return res, nil
+}
+
+func (c *Client) getUserRating(
 	_ context.Context, username string,
 ) (rating.Rating, error) {
 	resp, err := c.conn.R().
@@ -70,6 +94,25 @@ func (c *Client) GetUserRating(
 }
 
 func (c *Client) UpdateUserRating(
+	ctx context.Context, username string, diff int,
+) error {
+	if c.cb.Check("get_user_rating") {
+		return circuitbreaker.ErrSystemFails
+	}
+
+	err := c.updateUserRating(ctx, username, diff)
+	if err != nil {
+		c.cb.Inc("get_user_rating")
+
+		return err
+	}
+
+	c.cb.Release("get_user_rating")
+
+	return nil
+}
+
+func (c *Client) updateUserRating(
 	_ context.Context, username string, diff int,
 ) error {
 	resp, err := c.conn.R().

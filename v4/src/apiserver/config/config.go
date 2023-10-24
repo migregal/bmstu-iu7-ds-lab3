@@ -27,10 +27,13 @@ func ReadConfig() (*Config, error) {
 	viper.SetDefault("http_addr", ":8080")
 	viper.SetDefault("library.host", "library")
 	viper.SetDefault("library.port", "8060")
+	viper.SetDefault("library.max_fails", "10")
 	viper.SetDefault("rating.host", "rating")
 	viper.SetDefault("rating.port", "8050")
+	viper.SetDefault("rating.max_fails", "10")
 	viper.SetDefault("reservation.host", "reservation")
 	viper.SetDefault("reservation.port", "8070")
+	viper.SetDefault("reservation.max_fails", "10")
 
 	err := viper.ReadInConfig()
 	if err != nil {

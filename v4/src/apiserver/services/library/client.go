@@ -16,6 +16,7 @@ import (
 
 	"github.com/migregal/bmstu-iu7-ds-lab2/apiserver/core/ports/library"
 	v1 "github.com/migregal/bmstu-iu7-ds-lab2/library/api/http/v1"
+	"github.com/migregal/bmstu-iu7-ds-lab2/pkg/circuitbreaker"
 	"github.com/migregal/bmstu-iu7-ds-lab2/pkg/readiness"
 	"github.com/migregal/bmstu-iu7-ds-lab2/pkg/readiness/httpprober"
 )
@@ -26,6 +27,8 @@ var ErrInvalidStatusCode = errors.New("invalid status code")
 
 type Client struct {
 	lg *slog.Logger
+
+	cb *circuitbreaker.Client
 
 	conn *resty.Client
 }
@@ -41,6 +44,7 @@ func New(lg *slog.Logger, cfg library.Config, probe *readiness.Probe) (*Client, 
 
 	c := Client{
 		lg:   lg,
+		cb:   circuitbreaker.New(cfg.MaxFails),
 		conn: client,
 	}
 
@@ -50,6 +54,25 @@ func New(lg *slog.Logger, cfg library.Config, probe *readiness.Probe) (*Client, 
 }
 
 func (c *Client) GetLibraries(
+	ctx context.Context, city string, page uint64, size uint64,
+) (library.Infos, error) {
+	if c.cb.Check("get_libraries") {
+		return library.Infos{}, circuitbreaker.ErrSystemFails
+	}
+
+	res, err := c.getLibraries(ctx, city, page, size)
+	if err != nil {
+		c.cb.Inc("get_libraries")
+
+		return library.Infos{}, err
+	}
+
+	c.cb.Release("get_libraries")
+
+	return res, nil
+}
+
+func (c *Client) getLibraries(
 	_ context.Context, city string, page uint64, size uint64,
 ) (library.Infos, error) {
 	q := map[string]string{
@@ -87,6 +110,26 @@ func (c *Client) GetLibraries(
 
 // nolint: dupl
 func (c *Client) GetLibrariesByIDs(
+	ctx context.Context, ids []string,
+) (library.Infos, error) {
+	if c.cb.Check("get_libraries_by_ids") {
+		return library.Infos{}, circuitbreaker.ErrSystemFails
+	}
+
+	res, err := c.getLibrariesByIDs(ctx, ids)
+	if err != nil {
+		c.cb.Inc("get_libraries_by_ids")
+
+		return library.Infos{}, err
+	}
+
+	c.cb.Release("get_libraries_by_ids")
+
+	return res, nil
+}
+
+// nolint: dupl
+func (c *Client) getLibrariesByIDs(
 	_ context.Context, ids []string,
 ) (library.Infos, error) {
 	id, err := json.Marshal(ids)
@@ -116,7 +159,27 @@ func (c *Client) GetLibrariesByIDs(
 	return libraries, nil
 }
 
+// nolint: dupl
 func (c *Client) GetBooks(
+	ctx context.Context, libraryID string, showAll bool, page uint64, size uint64,
+) (library.Books, error) {
+	if c.cb.Check("get_books") {
+		return library.Books{}, circuitbreaker.ErrSystemFails
+	}
+
+	res, err := c.getBooks(ctx, libraryID, showAll, page, size)
+	if err != nil {
+		c.cb.Inc("get_books")
+
+		return library.Books{}, err
+	}
+
+	c.cb.Release("get_books")
+
+	return res, nil
+}
+
+func (c *Client) getBooks(
 	_ context.Context, libraryID string, showAll bool, page uint64, size uint64,
 ) (library.Books, error) {
 	if size == 0 {
@@ -157,6 +220,26 @@ func (c *Client) GetBooks(
 
 // nolint: dupl
 func (c *Client) GetBooksByIDs(
+	ctx context.Context, ids []string,
+) (library.Books, error) {
+	if c.cb.Check("get_books_by_ids") {
+		return library.Books{}, circuitbreaker.ErrSystemFails
+	}
+
+	res, err := c.getBooksByIDs(ctx, ids)
+	if err != nil {
+		c.cb.Inc("get_books_by_ids")
+
+		return library.Books{}, err
+	}
+
+	c.cb.Release("get_books_by_ids")
+
+	return res, nil
+}
+
+// nolint: dupl
+func (c *Client) getBooksByIDs(
 	_ context.Context, ids []string,
 ) (library.Books, error) {
 	id, err := json.Marshal(ids)
@@ -186,7 +269,27 @@ func (c *Client) GetBooksByIDs(
 	return books, nil
 }
 
+// nolint: dupl
 func (c *Client) ObtainBook(
+	ctx context.Context, libraryID string, bookID string,
+) (library.ReservedBook, error) {
+	if c.cb.Check("obtain_book") {
+		return library.ReservedBook{}, circuitbreaker.ErrSystemFails
+	}
+
+	res, err := c.obtainBook(ctx, libraryID, bookID)
+	if err != nil {
+		c.cb.Inc("obtain_book")
+
+		return library.ReservedBook{}, err
+	}
+
+	c.cb.Release("obtain_book")
+
+	return res, nil
+}
+
+func (c *Client) obtainBook(
 	_ context.Context, libraryID string, bookID string,
 ) (library.ReservedBook, error) {
 	body, err := json.Marshal(v1.TakeBookRequest{
@@ -219,6 +322,25 @@ func (c *Client) ObtainBook(
 }
 
 func (c *Client) ReturnBook(
+	ctx context.Context, libraryID string, bookID string,
+) (library.Book, error) {
+	if c.cb.Check("return_book") {
+		return library.Book{}, circuitbreaker.ErrSystemFails
+	}
+
+	res, err := c.returnBook(ctx, libraryID, bookID)
+	if err != nil {
+		c.cb.Inc("return book")
+
+		return library.Book{}, err
+	}
+
+	c.cb.Release("return_book")
+
+	return res, nil
+}
+
+func (c *Client) returnBook(
 	_ context.Context, libraryID string, bookID string,
 ) (library.Book, error) {
 	body, err := json.Marshal(v1.TakeBookRequest{
