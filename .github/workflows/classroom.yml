@@ -7,9 +7,27 @@ on:
     branches:
       - master
 jobs:
-  build:
-    name: Autograding
+  unit-test:
+    name: Run go unit tests
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21.1'
+          cache-dependency-path: src/go.sum
+
+      - name: Test
+        run: cd v4/src && make test
+
+  build:
+    name: Build images
+    runs-on: ubuntu-latest
+    needs: [unit-test]
     steps:
       - uses: actions/checkout@v3
         with:
@@ -17,30 +35,157 @@ jobs:
 
       - uses: docker/setup-buildx-action@v2
 
-      # TODO build and run unit tests
+      - name: Build Docker Images
+        run: |
+          export TAG=${{ github.sha }}
+          docker compose -f docker-compose.yml build
 
-      - name: Build images
-        timeout-minutes: 10
-        run: docker compose build
+      - name: Upload gateway image
+        uses: ishworkh/container-image-artifact-upload@v1.0.0
+        with:
+          image: "migregal/library-apiserver:${{ github.sha }}"
+          retention_days: 1
+      - name: Upload ratings image
+        uses: ishworkh/container-image-artifact-upload@v1.0.0
+        with:
+          image: "migregal/library-ratingapi:${{ github.sha }}"
+          retention_days: 1
+      - name: Upload libraries image
+        uses: ishworkh/container-image-artifact-upload@v1.0.0
+        with:
+          image: "migregal/library-libraryapi:${{ github.sha }}"
+          retention_days: 1
+      - name: Upload reservations image
+        uses: ishworkh/container-image-artifact-upload@v1.0.0
+        with:
+          image: "migregal/library-reservationapi:${{ github.sha }}"
+          retention_days: 1
+
+  integration-test:
+    name: Run integration tests
+    runs-on: ubuntu-latest
+    needs: [build]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: docker/setup-buildx-action@v2
+
+      - name: Download gateway image
+        uses: ishworkh/container-image-artifact-download@v1.0.0
+        with:
+          image: "migregal/library-apiserver:${{ github.sha }}"
+      - name: Download ratings image
+        uses: ishworkh/container-image-artifact-download@v1.0.0
+        with:
+          image: "migregal/library-ratingapi:${{ github.sha }}"
+      - name: Download library image
+        uses: ishworkh/container-image-artifact-download@v1.0.0
+        with:
+          image: "migregal/library-libraryapi:${{ github.sha }}"
+      - name: Download reservation image
+        uses: ishworkh/container-image-artifact-download@v1.0.0
+        with:
+          image: "migregal/library-reservationapi:${{ github.sha }}"
 
       - name: Run containers
         timeout-minutes: 5
         run: |
-          docker compose up -d
-          ./scripts/wait-script.sh
+          export TAG=${{ github.sha }}
+          docker compose -f docker-compose.yml up -d --wait --wait-timeout 120
         env:
           WAIT_PORTS: 8080,8070,8060,8050
 
-      # TODO setup variant, service and port
+      - name: Collect docker logs on failure
+        if: "!success()"
+        uses: jwalton/gh-docker-logs@v2
+        with:
+          dest: './logs-docs'
+
+      - name: Upload logs to GitHub
+        if: "!success()"
+        uses: actions/upload-artifact@master
+        with:
+          name: logs-docs
+          path: ./logs-docs/*
 
       - name: Run API Tests
         timeout-minutes: 5
         run: ./scripts/test-script.sh
         env:
-          VARIANT: <variant>
-          SERVICE_NAME: <your service name>
-          PORT_NUMBER: <port number>
+          VARIANT: v4
+          SERVICE_NAME: apiserver
+          PORT_NUMBER: 8080
 
+      - name: Stop containers
+        if: always()
+        continue-on-error: true
+        run: |
+          export TAG=${{ github.sha }}
+          docker compose -f docker-compose.yml down -v
+
+  publish-images:
+    name: Publish Docker Images
+    runs-on: ubuntu-latest
+    needs: [integration-test]
+    timeout-minutes: 15
+    steps:
+      - name: Download gateway image
+        uses: ishworkh/container-image-artifact-download@v1.0.0
+        with:
+          image: "migregal/library-apiserver:${{ github.sha }}"
+      - name: Download ratings image
+        uses: ishworkh/container-image-artifact-download@v1.0.0
+        with:
+          image: "migregal/library-ratingapi:${{ github.sha }}"
+      - name: Download library image
+        uses: ishworkh/container-image-artifact-download@v1.0.0
+        with:
+          image: "migregal/library-libraryapi:${{ github.sha }}"
+      - name: Download reservation image
+        uses: ishworkh/container-image-artifact-download@v1.0.0
+        with:
+          image: "migregal/library-reservationapi:${{ github.sha }}"
+
+      - name: Load image
+        timeout-minutes: 1
+        run: |
+          docker load -i /tmp/migregal_library-apiserver_${{ github.sha }}
+          docker load -i /tmp/migregal_library-ratingapi_${{ github.sha }}
+          docker load -i /tmp/migregal_library-reservationapi_${{ github.sha }}
+          docker load -i /tmp/migregal_library-libraryapi_${{ github.sha }}
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Push images
+        run: |
+          docker push migregal/library-apiserver:${{ github.sha }}
+          docker tag migregal/library-apiserver:${{ github.sha }} migregal/library-apiserver:latest
+          docker push migregal/library-apiserver:latest
+
+          docker push migregal/library-ratingapi:${{ github.sha }}
+          docker tag migregal/library-ratingapi:${{ github.sha }} migregal/library-ratingapi:latest
+          docker push migregal/library-ratingapi:latest
+
+          docker push migregal/library-reservationapi:${{ github.sha }}
+          docker tag migregal/library-reservationapi:${{ github.sha }} migregal/library-reservationapi:latest
+          docker push migregal/library-reservationapi:latest
+
+          docker push migregal/library-libraryapi:${{ github.sha }}
+          docker tag migregal/library-libraryapi:${{ github.sha }} migregal/library-libraryapi:latest
+          docker push migregal/library-libraryapi:latest
+
+  autograde:
+    name: Autograding
+    runs-on: ubuntu-latest
+    needs: [integration-test]
+    steps:
       - uses: education/autograding@v1
         id: autograder
         continue-on-error: true
@@ -50,12 +195,7 @@ jobs:
         with:
           google_token: ${{secrets.GOOGLE_API_KEY}}
           sheet_id: "1xkgjUX6Qmk7rdJG-QPOToav-HWWtthJjnShIKnw3oIY"
-          homework_number: 3
+          homework_number: 2
           user_column: 'D'
           column_offset: 'F'
           mark: "'+"
-
-      - name: Stop containers
-        if: always()
-        continue-on-error: true
-        run: docker compose down -v
