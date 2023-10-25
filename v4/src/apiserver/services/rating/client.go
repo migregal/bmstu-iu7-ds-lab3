@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/go-resty/resty/v2"
+	"github.com/sony/gobreaker"
 
 	"github.com/migregal/bmstu-iu7-ds-lab2/apiserver/core/ports/rating"
-	"github.com/migregal/bmstu-iu7-ds-lab2/pkg/circuitbreaker"
 	"github.com/migregal/bmstu-iu7-ds-lab2/pkg/readiness"
 	"github.com/migregal/bmstu-iu7-ds-lab2/pkg/readiness/httpprober"
 	"github.com/migregal/bmstu-iu7-ds-lab2/pkg/retryer"
@@ -32,7 +32,7 @@ type ratingChange struct {
 type Client struct {
 	lg *slog.Logger
 
-	cb      *circuitbreaker.Client
+	cb      *gobreaker.CircuitBreaker
 	retryer *retryer.Client[ratingChange]
 
 	conn *resty.Client
@@ -48,8 +48,12 @@ func New(lg *slog.Logger, cfg rating.Config, probe *readiness.Probe) (*Client, e
 		SetBaseURL(fmt.Sprintf("http://%s", net.JoinHostPort(cfg.Host, cfg.Port)))
 
 	c := Client{
-		lg:      lg,
-		cb:      circuitbreaker.New(cfg.MaxFails),
+		lg: lg,
+		cb: gobreaker.NewCircuitBreaker(gobreaker.Settings{
+			Name:        "get_user_rating",
+			Timeout:     time.Second,
+			MaxRequests: cfg.MaxFails,
+		}),
 		retryer: retryer.New[ratingChange](),
 		conn:    client,
 	}
@@ -59,22 +63,24 @@ func New(lg *slog.Logger, cfg rating.Config, probe *readiness.Probe) (*Client, e
 	return &c, nil
 }
 
-// nolint: dupl
 func (c *Client) GetUserRating(
 	ctx context.Context, username string,
 ) (rating.Rating, error) {
-	if c.cb.Check("get_user_rating") {
-		return rating.Rating{}, circuitbreaker.ErrSystemFails
-	}
-
-	res, err := c.getUserRating(ctx, username)
+	data, err := c.cb.Execute(func() (any, error) {
+		return c.getUserRating(ctx, username)
+	})
 	if err != nil {
-		c.cb.Inc("get_user_rating")
+		if errors.Is(err, gobreaker.ErrOpenState) {
+			return rating.Rating{}, nil
+		}
 
-		return rating.Rating{}, err
+		return rating.Rating{}, fmt.Errorf("get rating: %w", err)
 	}
 
-	c.cb.Release("get_user_rating")
+	res, ok := data.(rating.Rating)
+	if !ok {
+		return rating.Rating{}, nil
+	}
 
 	return res, nil
 }
@@ -104,15 +110,8 @@ func (c *Client) getUserRating(
 func (c *Client) UpdateUserRating(
 	ctx context.Context, username string, diff int,
 ) error {
-	if c.cb.Check("update_user_rating") {
-		return circuitbreaker.ErrSystemFails
-	}
-
 	err := c.updateUserRating(ctx, username, diff)
-	if err == nil {
-		c.cb.Release("update_user_rating")
-	} else {
-		c.cb.Inc("update_user_rating")
+	if err != nil {
 		c.lg.Warn("failed to update rating", "err", err, "username", username)
 
 		c.retryer.Append(ratingChange{

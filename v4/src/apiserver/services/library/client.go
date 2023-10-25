@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/go-resty/resty/v2"
+	"github.com/sony/gobreaker"
 
 	"github.com/migregal/bmstu-iu7-ds-lab2/apiserver/core/ports/library"
 	v1 "github.com/migregal/bmstu-iu7-ds-lab2/library/api/http/v1"
-	"github.com/migregal/bmstu-iu7-ds-lab2/pkg/circuitbreaker"
 	"github.com/migregal/bmstu-iu7-ds-lab2/pkg/readiness"
 	"github.com/migregal/bmstu-iu7-ds-lab2/pkg/readiness/httpprober"
 )
@@ -28,7 +28,8 @@ var ErrInvalidStatusCode = errors.New("invalid status code")
 type Client struct {
 	lg *slog.Logger
 
-	cb *circuitbreaker.Client
+	libCB  *gobreaker.CircuitBreaker
+	bookCB *gobreaker.CircuitBreaker
 
 	conn *resty.Client
 }
@@ -43,8 +44,17 @@ func New(lg *slog.Logger, cfg library.Config, probe *readiness.Probe) (*Client, 
 		SetBaseURL(fmt.Sprintf("http://%s", net.JoinHostPort(cfg.Host, cfg.Port)))
 
 	c := Client{
-		lg:   lg,
-		cb:   circuitbreaker.New(cfg.MaxFails),
+		lg: lg,
+		libCB: gobreaker.NewCircuitBreaker(gobreaker.Settings{
+			Name:        "get_libraries",
+			Timeout:     time.Second,
+			MaxRequests: cfg.MaxFails,
+		}),
+		bookCB: gobreaker.NewCircuitBreaker(gobreaker.Settings{
+			Name:        "get_books",
+			Timeout:     time.Second,
+			MaxRequests: cfg.MaxFails,
+		}),
 		conn: client,
 	}
 
@@ -56,18 +66,21 @@ func New(lg *slog.Logger, cfg library.Config, probe *readiness.Probe) (*Client, 
 func (c *Client) GetLibraries(
 	ctx context.Context, city string, page uint64, size uint64,
 ) (library.Infos, error) {
-	if c.cb.Check("get_libraries") {
-		return library.Infos{}, circuitbreaker.ErrSystemFails
-	}
-
-	res, err := c.getLibraries(ctx, city, page, size)
+	data, err := c.libCB.Execute(func() (any, error) {
+		return c.getLibraries(ctx, city, page, size)
+	})
 	if err != nil {
-		c.cb.Inc("get_libraries")
+		if errors.Is(err, gobreaker.ErrOpenState) {
+			return library.Infos{}, nil
+		}
 
-		return library.Infos{}, err
+		return library.Infos{}, fmt.Errorf("get libraries: %w", err)
 	}
 
-	c.cb.Release("get_libraries")
+	res, ok := data.(library.Infos)
+	if !ok {
+		return library.Infos{}, nil
+	}
 
 	return res, nil
 }
@@ -112,18 +125,21 @@ func (c *Client) getLibraries(
 func (c *Client) GetLibrariesByIDs(
 	ctx context.Context, ids []string,
 ) (library.Infos, error) {
-	if c.cb.Check("get_libraries_by_ids") {
-		return library.Infos{}, circuitbreaker.ErrSystemFails
-	}
-
-	res, err := c.getLibrariesByIDs(ctx, ids)
+	data, err := c.libCB.Execute(func() (any, error) {
+		return c.getLibrariesByIDs(ctx, ids)
+	})
 	if err != nil {
-		c.cb.Inc("get_libraries_by_ids")
+		if errors.Is(err, gobreaker.ErrOpenState) {
+			return library.Infos{}, nil
+		}
 
-		return library.Infos{}, err
+		return library.Infos{}, fmt.Errorf("get libraries: %w", err)
 	}
 
-	c.cb.Release("get_libraries_by_ids")
+	res, ok := data.(library.Infos)
+	if !ok {
+		return library.Infos{}, nil
+	}
 
 	return res, nil
 }
@@ -163,18 +179,21 @@ func (c *Client) getLibrariesByIDs(
 func (c *Client) GetBooks(
 	ctx context.Context, libraryID string, showAll bool, page uint64, size uint64,
 ) (library.Books, error) {
-	if c.cb.Check("get_books") {
-		return library.Books{}, circuitbreaker.ErrSystemFails
-	}
-
-	res, err := c.getBooks(ctx, libraryID, showAll, page, size)
+	data, err := c.bookCB.Execute(func() (any, error) {
+		return c.getBooks(ctx, libraryID, showAll, page, size)
+	})
 	if err != nil {
-		c.cb.Inc("get_books")
+		if errors.Is(err, gobreaker.ErrOpenState) {
+			return library.Books{}, nil
+		}
 
-		return library.Books{}, err
+		return library.Books{}, fmt.Errorf("get books: %w", err)
 	}
 
-	c.cb.Release("get_books")
+	res, ok := data.(library.Books)
+	if !ok {
+		return library.Books{}, nil
+	}
 
 	return res, nil
 }
@@ -222,18 +241,21 @@ func (c *Client) getBooks(
 func (c *Client) GetBooksByIDs(
 	ctx context.Context, ids []string,
 ) (library.Books, error) {
-	if c.cb.Check("get_books_by_ids") {
-		return library.Books{}, circuitbreaker.ErrSystemFails
-	}
-
-	res, err := c.getBooksByIDs(ctx, ids)
+	data, err := c.bookCB.Execute(func() (any, error) {
+		return c.getBooksByIDs(ctx, ids)
+	})
 	if err != nil {
-		c.cb.Inc("get_books_by_ids")
+		if errors.Is(err, gobreaker.ErrOpenState) {
+			return library.Books{}, nil
+		}
 
-		return library.Books{}, err
+		return library.Books{}, fmt.Errorf("get books by id: %w", err)
 	}
 
-	c.cb.Release("get_books_by_ids")
+	res, ok := data.(library.Books)
+	if !ok {
+		return library.Books{}, nil
+	}
 
 	return res, nil
 }
@@ -269,27 +291,7 @@ func (c *Client) getBooksByIDs(
 	return books, nil
 }
 
-// nolint: dupl
 func (c *Client) ObtainBook(
-	ctx context.Context, libraryID string, bookID string,
-) (library.ReservedBook, error) {
-	if c.cb.Check("obtain_book") {
-		return library.ReservedBook{}, circuitbreaker.ErrSystemFails
-	}
-
-	res, err := c.obtainBook(ctx, libraryID, bookID)
-	if err != nil {
-		c.cb.Inc("obtain_book")
-
-		return library.ReservedBook{}, err
-	}
-
-	c.cb.Release("obtain_book")
-
-	return res, nil
-}
-
-func (c *Client) obtainBook(
 	_ context.Context, libraryID string, bookID string,
 ) (library.ReservedBook, error) {
 	body, err := json.Marshal(v1.TakeBookRequest{
@@ -322,25 +324,6 @@ func (c *Client) obtainBook(
 }
 
 func (c *Client) ReturnBook(
-	ctx context.Context, libraryID string, bookID string,
-) (library.Book, error) {
-	if c.cb.Check("return_book") {
-		return library.Book{}, circuitbreaker.ErrSystemFails
-	}
-
-	res, err := c.returnBook(ctx, libraryID, bookID)
-	if err != nil {
-		c.cb.Inc("return book")
-
-		return library.Book{}, err
-	}
-
-	c.cb.Release("return_book")
-
-	return res, nil
-}
-
-func (c *Client) returnBook(
 	_ context.Context, libraryID string, bookID string,
 ) (library.Book, error) {
 	body, err := json.Marshal(v1.TakeBookRequest{
