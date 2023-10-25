@@ -62,7 +62,7 @@ func (ct *Time) UnmarshalJSON(b []byte) error {
 	ct.Time, err = time.Parse(time.DateOnly, s)
 
 	if err != nil {
-		return fmt.Errorf("failed to parse time: %w", err)
+		return fmt.Errorf("parse time: %w", err)
 	}
 
 	return nil

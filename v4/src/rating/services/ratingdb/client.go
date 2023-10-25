@@ -28,7 +28,7 @@ func New(lg *slog.Logger, cfg ratings.Config, probe *readiness.Probe) (*DB, erro
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to establish connection to db: %w", err)
+		return nil, fmt.Errorf("establish connection to db: %w", err)
 	}
 
 	go runMigrations(lg, db, probe, cfg.MigrationInterval)
@@ -52,7 +52,7 @@ func (d *DB) GetUserRating(
 			if err = tx.Create(&data).Error; err != nil {
 				tx.Rollback()
 
-				return ratings.Rating{}, fmt.Errorf("failed to create new user record: %w", err)
+				return ratings.Rating{}, fmt.Errorf("create new user record: %w", err)
 			}
 
 			tx.Commit()
@@ -62,7 +62,7 @@ func (d *DB) GetUserRating(
 
 		tx.Rollback()
 
-		return ratings.Rating{}, fmt.Errorf("failed to find rating info: %w", err)
+		return ratings.Rating{}, fmt.Errorf("find rating info: %w", err)
 	}
 
 	tx.Commit()
@@ -79,7 +79,7 @@ func (d *DB) UpdateUserRating(
 	if err := stmt.Update("stars", gorm.Expr("GREATEST(1, stars + ?)", diff)).Error; err != nil {
 		tx.Rollback()
 
-		return fmt.Errorf("failed to update book info: %w", err)
+		return fmt.Errorf("update book info: %w", err)
 	}
 
 	tx.Commit()

@@ -93,7 +93,7 @@ func (c *Client) getUserRating(
 		SetResult(&v1.RatingResponse{}).
 		Get("/api/v1/rating")
 	if err != nil {
-		return rating.Rating{}, fmt.Errorf("failed to execute http request: %w", err)
+		return rating.Rating{}, fmt.Errorf("execute http request: %w", err)
 	}
 
 	if resp.StatusCode() != http.StatusOK {
@@ -140,7 +140,7 @@ func (c *Client) updateUserRating(
 		SetResult(&v1.RatingResponse{}).
 		Patch("/api/v1/rating")
 	if err != nil {
-		return fmt.Errorf("failed to execute http request: %w", err)
+		return fmt.Errorf("execute http request: %w", err)
 	}
 
 	if resp.StatusCode() != http.StatusOK {

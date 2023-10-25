@@ -30,7 +30,7 @@ func (c *Core) GetUserRating(
 			return ratings.Rating{Stars: 1}, nil
 		}
 
-		return ratings.Rating{}, fmt.Errorf("failed to get user rating: %w", err)
+		return ratings.Rating{}, fmt.Errorf("get user rating: %w", err)
 	}
 
 	return data, nil
@@ -39,7 +39,7 @@ func (c *Core) GetUserRating(
 func (c *Core) UpdateUserRating(ctx context.Context, username string, diff int) error {
 	err := c.rating.UpdateUserRating(ctx, username, diff)
 	if err != nil {
-		return fmt.Errorf("failed to get user rating: %w", err)
+		return fmt.Errorf("get user rating: %w", err)
 	}
 
 	return nil

@@ -44,7 +44,7 @@ func (c *Core) GetLibraries(
 	if err != nil {
 		c.lg.ErrorContext(ctx, "failed to get list of libraries", "error", err)
 
-		return library.Infos{}, fmt.Errorf("failed to get list of libraries: %w", err)
+		return library.Infos{}, fmt.Errorf("get list of libraries: %w", err)
 	}
 
 	return data, nil
@@ -57,7 +57,7 @@ func (c *Core) GetLibraryBooks(
 	if err != nil {
 		c.lg.ErrorContext(ctx, "failed to get list of library books", "error", err)
 
-		return library.Books{}, fmt.Errorf("failed to get list of library books: %w", err)
+		return library.Books{}, fmt.Errorf("get list of library books: %w", err)
 	}
 
 	return books, nil
@@ -70,7 +70,7 @@ func (c *Core) GetUserRating(
 	if err != nil {
 		c.lg.ErrorContext(ctx, "failed to get user rating", "error", err)
 
-		return rating.Rating{}, fmt.Errorf("failed to get user rating: %w", err)
+		return rating.Rating{}, fmt.Errorf("get user rating: %w", err)
 	}
 
 	return data, nil
@@ -84,7 +84,7 @@ func (c *Core) GetUserReservations(
 	if err != nil {
 		c.lg.ErrorContext(ctx, "failed to get list of user reservations", "error", err)
 
-		return nil, fmt.Errorf("failed to get list of user reservations: %w", err)
+		return nil, fmt.Errorf("get list of user reservations: %w", err)
 	}
 
 	wg := sync.WaitGroup{}
@@ -129,7 +129,7 @@ func (c *Core) GetUserReservations(
 	case err = <-errs:
 		c.lg.ErrorContext(ctx, "failed to get list of user books", "error", err)
 
-		return nil, fmt.Errorf("failed to get list of user books: %w", err)
+		return nil, fmt.Errorf("get list of user books: %w", err)
 	default:
 	}
 
@@ -173,14 +173,14 @@ func (c *Core) TakeBook(
 	if err != nil {
 		c.lg.Warn("failed to get reservations", "error", err)
 
-		return reservation.FullInfo{}, fmt.Errorf("failed to get user reservations: %w", err)
+		return reservation.FullInfo{}, fmt.Errorf("get user reservations: %w", err)
 	}
 
 	rating, err := c.rating.GetUserRating(ctx, username)
 	if err != nil {
 		c.lg.Warn("failed to get rating", "error", err)
 
-		return reservation.FullInfo{}, fmt.Errorf("failed to get user rating: %w", err)
+		return reservation.FullInfo{}, fmt.Errorf("get user rating: %w", err)
 	}
 
 	if uint64(len(resvs)) >= rating.Stars {
@@ -202,14 +202,14 @@ func (c *Core) TakeBook(
 	if err != nil {
 		c.lg.Warn("failed to add reservation", "error", err)
 
-		return reservation.FullInfo{}, fmt.Errorf("failed to add reservation for obtained book: %w", err)
+		return reservation.FullInfo{}, fmt.Errorf("add reservation for obtained book: %w", err)
 	}
 
 	book, err := c.library.ObtainBook(ctx, libraryID, bookID)
 	if err != nil {
 		c.lg.Warn("failed to update books amount", "error", err)
 
-		return reservation.FullInfo{}, fmt.Errorf("failed to obtain book from library: %w", err)
+		return reservation.FullInfo{}, fmt.Errorf("obtain book from library: %w", err)
 	}
 
 	res := reservation.FullInfo{
@@ -234,7 +234,7 @@ func (c *Core) ReturnBook(
 	if err != nil {
 		c.lg.Warn("failed to get reservations", "error", err)
 
-		return fmt.Errorf("failed to get user reservations: %w", err)
+		return fmt.Errorf("get user reservations: %w", err)
 	}
 
 	var resv reservation.Info
@@ -260,7 +260,7 @@ func (c *Core) ReturnBook(
 		if err = c.rating.UpdateUserRating(ctx, username, -10); err != nil {
 			c.lg.Warn("failed to update user rating", "error", err)
 
-			return fmt.Errorf("failed to update user rating: %w", err)
+			return fmt.Errorf("update user rating: %w", err)
 		}
 	}
 
@@ -268,14 +268,14 @@ func (c *Core) ReturnBook(
 	if err != nil {
 		c.lg.Warn("failed to change reservation status", "error", err)
 
-		return fmt.Errorf("failed to change reservation status: %w", err)
+		return fmt.Errorf("change reservation status: %w", err)
 	}
 
 	book, err := c.library.ReturnBook(ctx, resv.LibraryID, resv.BookID)
 	if err != nil {
 		c.lg.Warn("failed to obtain book info", "error", err)
 
-		return fmt.Errorf("failed to obtain book info: %w", err)
+		return fmt.Errorf("obtain book info: %w", err)
 	}
 
 	if condition != book.Condition {
@@ -286,7 +286,7 @@ func (c *Core) ReturnBook(
 		if err = c.rating.UpdateUserRating(ctx, username, -10); err != nil {
 			c.lg.Warn("failed to update user rating", "error", err)
 
-			return fmt.Errorf("failed to update user rating: %w", err)
+			return fmt.Errorf("update user rating: %w", err)
 		}
 	}
 
@@ -294,7 +294,7 @@ func (c *Core) ReturnBook(
 		if err = c.rating.UpdateUserRating(ctx, username, 1); err != nil {
 			c.lg.Warn("failed to update user rating", "error", err)
 
-			return fmt.Errorf("failed to update user rating: %w", err)
+			return fmt.Errorf("update user rating: %w", err)
 		}
 	}
 

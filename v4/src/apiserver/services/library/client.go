@@ -104,7 +104,7 @@ func (c *Client) getLibraries(
 		SetResult(&v1.LibrariesResponse{}).
 		Get("/api/v1/libraries")
 	if err != nil {
-		return library.Infos{}, fmt.Errorf("failed to execute http request: %w", err)
+		return library.Infos{}, fmt.Errorf("execute http request: %w", err)
 	}
 
 	if resp.StatusCode() != http.StatusOK {
@@ -150,7 +150,7 @@ func (c *Client) getLibrariesByIDs(
 ) (library.Infos, error) {
 	id, err := json.Marshal(ids)
 	if err != nil {
-		return library.Infos{}, fmt.Errorf("failed to marshal data: %w", err)
+		return library.Infos{}, fmt.Errorf("marshal data: %w", err)
 	}
 
 	resp, err := c.conn.R().
@@ -158,7 +158,7 @@ func (c *Client) getLibrariesByIDs(
 		SetResult(&v1.LibrariesResponse{}).
 		Get("/api/v1/libraries")
 	if err != nil {
-		return library.Infos{}, fmt.Errorf("failed to execute http request: %w", err)
+		return library.Infos{}, fmt.Errorf("execute http request: %w", err)
 	}
 
 	if resp.StatusCode() != http.StatusOK {
@@ -220,7 +220,7 @@ func (c *Client) getBooks(
 		SetResult(&v1.BooksResponse{}).
 		Get("/api/v1/libraries/{library_id}/books")
 	if err != nil {
-		return library.Books{}, fmt.Errorf("failed to execute http request: %w", err)
+		return library.Books{}, fmt.Errorf("execute http request: %w", err)
 	}
 
 	if resp.StatusCode() != http.StatusOK {
@@ -266,7 +266,7 @@ func (c *Client) getBooksByIDs(
 ) (library.Books, error) {
 	id, err := json.Marshal(ids)
 	if err != nil {
-		return library.Books{}, fmt.Errorf("failed to marshal data: %w", err)
+		return library.Books{}, fmt.Errorf("marshal data: %w", err)
 	}
 
 	resp, err := c.conn.R().
@@ -274,7 +274,7 @@ func (c *Client) getBooksByIDs(
 		SetResult(&v1.BooksResponse{}).
 		Get("/api/v1/books")
 	if err != nil {
-		return library.Books{}, fmt.Errorf("failed to execute http request: %w", err)
+		return library.Books{}, fmt.Errorf("execute http request: %w", err)
 	}
 
 	if resp.StatusCode() != http.StatusOK {
@@ -299,7 +299,7 @@ func (c *Client) ObtainBook(
 		LibraryID: libraryID,
 	})
 	if err != nil {
-		return library.ReservedBook{}, fmt.Errorf("failed to format json body: %w", err)
+		return library.ReservedBook{}, fmt.Errorf("format json body: %w", err)
 	}
 
 	resp, err := c.conn.R().
@@ -308,7 +308,7 @@ func (c *Client) ObtainBook(
 		SetResult(&v1.TakeBookResponse{}).
 		Post("/api/v1/books")
 	if err != nil {
-		return library.ReservedBook{}, fmt.Errorf("failed to execute http request: %w", err)
+		return library.ReservedBook{}, fmt.Errorf("execute http request: %w", err)
 	}
 
 	if resp.StatusCode() != http.StatusOK {
@@ -331,7 +331,7 @@ func (c *Client) ReturnBook(
 		LibraryID: libraryID,
 	})
 	if err != nil {
-		return library.Book{}, fmt.Errorf("failed to format json body: %w", err)
+		return library.Book{}, fmt.Errorf("format json body: %w", err)
 	}
 
 	resp, err := c.conn.R().
@@ -342,7 +342,7 @@ func (c *Client) ReturnBook(
 		SetResult(&v1.ReturnBookResponse{}).
 		Post("/api/v1/libraries/{lib_id}/books/{book_id}/return")
 	if err != nil {
-		return library.Book{}, fmt.Errorf("failed to execute http request: %w", err)
+		return library.Book{}, fmt.Errorf("execute http request: %w", err)
 	}
 
 	if resp.StatusCode() != http.StatusOK {

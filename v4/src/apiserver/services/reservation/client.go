@@ -87,7 +87,7 @@ func (c *Client) getUserReservations(
 		SetResult(&[]v1.Reservation{}).
 		Get("/api/v1/reservations")
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute http request: %w", err)
+		return nil, fmt.Errorf("execute http request: %w", err)
 	}
 
 	if resp.StatusCode() != http.StatusOK {
@@ -121,7 +121,7 @@ func (c *Client) AddUserReservation(_ context.Context, rsrvtn reservation.Info) 
 		LibraryID: rsrvtn.LibraryID,
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to format json body: %w", err)
+		return "", fmt.Errorf("format json body: %w", err)
 	}
 
 	resp, err := c.conn.R().
@@ -131,7 +131,7 @@ func (c *Client) AddUserReservation(_ context.Context, rsrvtn reservation.Info) 
 		SetResult(&v1.AddReservationResponse{}).
 		Post("/api/v1/reservations")
 	if err != nil {
-		return "", fmt.Errorf("failed to execute http request: %w", err)
+		return "", fmt.Errorf("execute http request: %w", err)
 	}
 
 	if resp.StatusCode() != http.StatusOK {
@@ -151,7 +151,7 @@ func (c *Client) SetUserReservationStatus(
 		SetQueryParam("status", status).
 		Patch("/api/v1/reservations/{id}")
 	if err != nil {
-		return fmt.Errorf("failed to execute http request: %w", err)
+		return fmt.Errorf("execute http request: %w", err)
 	}
 
 	if resp.StatusCode() != http.StatusOK {

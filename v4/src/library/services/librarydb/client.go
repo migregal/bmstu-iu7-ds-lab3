@@ -28,7 +28,7 @@ func New(lg *slog.Logger, cfg libraries.Config, probe *readiness.Probe) (*DB, er
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to establish connection to db: %w", err)
+		return nil, fmt.Errorf("establish connection to db: %w", err)
 	}
 
 	go runMigrations(lg, db, probe, cfg.MigrationInterval, cfg.EnableTestData)
@@ -52,7 +52,7 @@ func (d *DB) GetLibraries(
 	if err := stmt.Find(&libs).Error; err != nil {
 		tx.Rollback()
 
-		return resp, fmt.Errorf("failed to find libraries info: %w", err)
+		return resp, fmt.Errorf("find libraries info: %w", err)
 	}
 
 	stmt = tx.Model(&Library{})
@@ -64,7 +64,7 @@ func (d *DB) GetLibraries(
 	if err := stmt.Count(&count).Error; err != nil {
 		tx.Rollback()
 
-		return resp, fmt.Errorf("failed to count libraries: %w", err)
+		return resp, fmt.Errorf("count libraries: %w", err)
 	}
 
 	resp.Total = uint64(count)
@@ -91,7 +91,7 @@ func (d *DB) GetLibrariesByIDs(
 	if err := tx.Where("id in ?", ids).Find(&libs).Error; err != nil {
 		tx.Rollback()
 
-		return libraries.Libraries{}, fmt.Errorf("failed to find libraries info: %w", err)
+		return libraries.Libraries{}, fmt.Errorf("find libraries info: %w", err)
 	}
 
 	resp := libraries.Libraries{Total: uint64(len(libs))}
@@ -124,7 +124,7 @@ func (d *DB) GetLibraryBooks(
 	if err := stmt.Count(&count).Error; err != nil {
 		tx.Rollback()
 
-		return libraries.LibraryBooks{}, fmt.Errorf("failed to count library books info: %w", err)
+		return libraries.LibraryBooks{}, fmt.Errorf("count library books info: %w", err)
 	}
 
 	stmt = tx.Offset(int((page-1)*size)).Limit(int(size)).Where("fk_library_id = ?", libraryID)
@@ -136,7 +136,7 @@ func (d *DB) GetLibraryBooks(
 	if err := stmt.Preload("BookRef").Find(&libraryBooks).Error; err != nil {
 		tx.Rollback()
 
-		return libraries.LibraryBooks{}, fmt.Errorf("failed to select library books info: %w", err)
+		return libraries.LibraryBooks{}, fmt.Errorf("select library books info: %w", err)
 	}
 
 	resp := libraries.LibraryBooks{Total: uint64(count)}
@@ -168,7 +168,7 @@ func (d *DB) GetLibraryBooksByIDs(
 	if err := stmt.Find(&books).Error; err != nil {
 		tx.Rollback()
 
-		return libraries.LibraryBooks{}, fmt.Errorf("failed to select library books info: %w", err)
+		return libraries.LibraryBooks{}, fmt.Errorf("select library books info: %w", err)
 	}
 
 	resp := libraries.LibraryBooks{
@@ -207,14 +207,14 @@ func (d *DB) TakeBookFromLibrary(
 		// if errors.Is(err, gorm.ErrRecordNotFound) {
 		// }
 
-		return resp, fmt.Errorf("failed to update book info: %w", err)
+		return resp, fmt.Errorf("update book info: %w", err)
 	}
 
 	stmt = tx.Model(&LibraryBook{}).Preload("BookRef").Preload("LibraryRef")
 	if err := stmt.Where("id = ?", libraryBook.ID).First(&libraryBook).Error; err != nil {
 		tx.Rollback()
 
-		return resp, fmt.Errorf("failed to read book info: %w", err)
+		return resp, fmt.Errorf("read book info: %w", err)
 	}
 
 	tx.Commit()
@@ -254,14 +254,14 @@ func (d *DB) ReturnBookToLibrary(
 		// if errors.Is(err, gorm.ErrRecordNotFound) {
 		// }
 
-		return libraries.Book{}, fmt.Errorf("failed to update book info: %w", err)
+		return libraries.Book{}, fmt.Errorf("update book info: %w", err)
 	}
 
 	stmt = tx.Model(&LibraryBook{}).Preload("BookRef")
 	if err := stmt.Where("id = ?", libraryBook.ID).First(&libraryBook).Error; err != nil {
 		tx.Rollback()
 
-		return libraries.Book{}, fmt.Errorf("failed to read book info: %w", err)
+		return libraries.Book{}, fmt.Errorf("read book info: %w", err)
 	}
 
 	tx.Commit()

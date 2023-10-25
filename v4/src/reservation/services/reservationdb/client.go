@@ -28,7 +28,7 @@ func New(lg *slog.Logger, cfg reservations.Config, probe *readiness.Probe) (*DB,
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to establish connection to db: %w", err)
+		return nil, fmt.Errorf("establish connection to db: %w", err)
 	}
 
 	go runMigrations(lg, db, probe, cfg.MigrationInterval)
@@ -43,12 +43,12 @@ func (d *DB) AddReservation(
 
 	bookID, err := uuid.Parse(data.BookID)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse book id: %w", err)
+		return "", fmt.Errorf("parse book id: %w", err)
 	}
 
 	libraryID, err := uuid.Parse(data.LibraryID)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse library id: %w", err)
+		return "", fmt.Errorf("parse library id: %w", err)
 	}
 
 	r := Reservation{
@@ -62,7 +62,7 @@ func (d *DB) AddReservation(
 	if err := tx.Create(&r).Error; err != nil {
 		tx.Rollback()
 
-		return "", fmt.Errorf("failed to create reservation: %w", err)
+		return "", fmt.Errorf("create reservation: %w", err)
 	}
 
 	tx.Commit()
@@ -86,7 +86,7 @@ func (d *DB) GetUserReservations(
 	if err := stmt.Find(&data).Error; err != nil {
 		tx.Rollback()
 
-		return nil, fmt.Errorf("failed to find reservations info: %w", err)
+		return nil, fmt.Errorf("find reservations info: %w", err)
 	}
 
 	resp := []reservations.Reservation{}
@@ -113,7 +113,7 @@ func (d *DB) UpdateUserReservation(_ context.Context, id, status string) error {
 	if err := stmt.Update("status", status).Error; err != nil {
 		tx.Rollback()
 
-		return fmt.Errorf("failed to find reservations info: %w", err)
+		return fmt.Errorf("find reservations info: %w", err)
 	}
 
 	tx.Commit()

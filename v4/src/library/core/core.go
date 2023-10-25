@@ -25,7 +25,7 @@ func (c *Core) GetLibraries(
 ) (libraries.Libraries, error) {
 	libs, err := c.libraries.GetLibraries(ctx, city, page, size)
 	if err != nil {
-		return libraries.Libraries{}, fmt.Errorf("failed to get libraries: %w", err)
+		return libraries.Libraries{}, fmt.Errorf("get libraries: %w", err)
 	}
 
 	return libs, nil
@@ -36,7 +36,7 @@ func (c *Core) GetLibrariesByIDs(
 ) (libraries.Libraries, error) {
 	libs, err := c.libraries.GetLibrariesByIDs(ctx, ids)
 	if err != nil {
-		return libraries.Libraries{}, fmt.Errorf("failed to get libraries: %w", err)
+		return libraries.Libraries{}, fmt.Errorf("get libraries: %w", err)
 	}
 
 	return libs, nil
@@ -47,7 +47,7 @@ func (c *Core) GetLibraryBooks(
 ) (libraries.LibraryBooks, error) {
 	books, err := c.libraries.GetLibraryBooks(ctx, libraryID, showAll, page, size)
 	if err != nil {
-		return libraries.LibraryBooks{}, fmt.Errorf("failed to get books: %w", err)
+		return libraries.LibraryBooks{}, fmt.Errorf("get books: %w", err)
 	}
 
 	return books, nil
@@ -58,7 +58,7 @@ func (c *Core) GetLibraryBooksByIDs(
 ) (libraries.LibraryBooks, error) {
 	books, err := c.libraries.GetLibraryBooksByIDs(ctx, ids)
 	if err != nil {
-		return libraries.LibraryBooks{}, fmt.Errorf("failed to get books: %w", err)
+		return libraries.LibraryBooks{}, fmt.Errorf("get books: %w", err)
 	}
 
 	return books, nil
@@ -69,7 +69,7 @@ func (c *Core) TakeBook(
 ) (libraries.ReservedBook, error) {
 	data, err := c.libraries.TakeBookFromLibrary(ctx, libraryID, bookID)
 	if err != nil {
-		return libraries.ReservedBook{}, fmt.Errorf("failed to take book from db: %w", err)
+		return libraries.ReservedBook{}, fmt.Errorf("take book from db: %w", err)
 	}
 
 	return data, nil
@@ -78,7 +78,7 @@ func (c *Core) TakeBook(
 func (c *Core) ReturnBook(ctx context.Context, libraryID, bookID string) (libraries.Book, error) {
 	data, err := c.libraries.ReturnBookToLibrary(ctx, libraryID, bookID)
 	if err != nil {
-		return libraries.Book{}, fmt.Errorf("failed to return book: %w", err)
+		return libraries.Book{}, fmt.Errorf("return book: %w", err)
 	}
 
 	return data, nil

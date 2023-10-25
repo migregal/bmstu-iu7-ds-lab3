@@ -25,7 +25,7 @@ func (c *Core) AddReservation(
 ) (string, error) {
 	id, err := c.reservations.AddReservation(ctx, username, data)
 	if err != nil {
-		return "", fmt.Errorf("failed to add user reservation: %w", err)
+		return "", fmt.Errorf("add user reservation: %w", err)
 	}
 
 	return id, nil
@@ -36,7 +36,7 @@ func (c *Core) GetUserReservations(
 ) ([]reservations.Reservation, error) {
 	data, err := c.reservations.GetUserReservations(ctx, username, status)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get list of user reservations: %w", err)
+		return nil, fmt.Errorf("get list of user reservations: %w", err)
 	}
 
 	return data, nil
@@ -47,7 +47,7 @@ func (c *Core) UpdateUserReservation(
 ) error {
 	err := c.reservations.UpdateUserReservation(ctx, id, status)
 	if err != nil {
-		return fmt.Errorf("failed to get list of user reservations: %w", err)
+		return fmt.Errorf("get list of user reservations: %w", err)
 	}
 
 	return nil
