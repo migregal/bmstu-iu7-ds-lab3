@@ -1,6 +1,14 @@
 package rating
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+var (
+	ErrInvalidStatusCode = errors.New("invalid status code")
+	ErrUnavaliable       = errors.New("rating service unavailable")
+)
 
 type Config struct {
 	Host     string

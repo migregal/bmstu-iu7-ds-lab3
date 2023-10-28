@@ -23,7 +23,10 @@ import (
 
 const probeKey = "http-library-client"
 
-var ErrInvalidStatusCode = errors.New("invalid status code")
+var (
+	ErrInvalidStatusCode = library.ErrInvalidStatusCode
+	ErrUnavaliable       = library.ErrUnavaliable
+)
 
 type Client struct {
 	lg *slog.Logger
@@ -104,6 +107,11 @@ func (c *Client) getLibraries(
 		SetResult(&v1.LibrariesResponse{}).
 		Get("/api/v1/libraries")
 	if err != nil {
+		var dnsError *net.DNSError
+		if errors.As(err, &dnsError) {
+			err = ErrUnavaliable
+		}
+
 		return library.Infos{}, fmt.Errorf("execute http request: %w", err)
 	}
 

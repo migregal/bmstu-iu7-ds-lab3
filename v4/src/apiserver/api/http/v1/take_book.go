@@ -3,13 +3,13 @@ package v1
 import (
 	"encoding/json"
 	"errors"
-	"net"
 	"net/http"
 	"time"
 
 	"github.com/labstack/echo/v4"
 
 	"github.com/migregal/bmstu-iu7-ds-lab2/apiserver/core"
+	"github.com/migregal/bmstu-iu7-ds-lab2/apiserver/core/ports/rating"
 )
 
 type TakeBookRequest struct {
@@ -48,9 +48,8 @@ func (a *api) TakeBook(c echo.Context, req TakeBookRequest) error {
 		c.Request().Context(), req.Username, req.LibraryID, req.BookID, req.End.Time,
 	)
 	if err != nil {
-		var dnsError *net.DNSError
-		if errors.As(err, &dnsError) {
-			return c.NoContent(http.StatusServiceUnavailable)
+		if errors.Is(err, rating.ErrUnavaliable) {
+			return c.JSON(http.StatusServiceUnavailable, ErrorResponse{Message: "Bonus Service unavailable"})
 		}
 
 		status := http.StatusInternalServerError

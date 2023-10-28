@@ -21,7 +21,10 @@ import (
 
 const probeKey = "http-reservation-client"
 
-var ErrInvalidStatusCode = errors.New("invalid status code")
+var (
+	ErrInvalidStatusCode = reservation.ErrInvalidStatusCode
+	ErrUnavaliable       = reservation.ErrUnavaliable
+)
 
 type Client struct {
 	lg *slog.Logger
@@ -87,6 +90,11 @@ func (c *Client) getUserReservations(
 		SetResult(&[]v1.Reservation{}).
 		Get("/api/v1/reservations")
 	if err != nil {
+		var dnsError *net.DNSError
+		if errors.As(err, &dnsError) {
+			err = ErrUnavaliable
+		}
+
 		return nil, fmt.Errorf("execute http request: %w", err)
 	}
 

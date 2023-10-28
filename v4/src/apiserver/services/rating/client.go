@@ -22,7 +22,10 @@ import (
 
 const probeKey = "http-rating-client"
 
-var ErrInvalidStatusCode = errors.New("invalid status code")
+var (
+	ErrInvalidStatusCode = rating.ErrInvalidStatusCode
+	ErrUnavaliable       = rating.ErrUnavaliable
+)
 
 type ratingChange struct {
 	username string
@@ -93,6 +96,11 @@ func (c *Client) getUserRating(
 		SetResult(&v1.RatingResponse{}).
 		Get("/api/v1/rating")
 	if err != nil {
+		var dnsError *net.DNSError
+		if errors.As(err, &dnsError) {
+			err = ErrUnavaliable
+		}
+
 		return rating.Rating{}, fmt.Errorf("execute http request: %w", err)
 	}
 
