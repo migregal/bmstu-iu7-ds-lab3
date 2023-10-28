@@ -128,7 +128,7 @@ networks:
 
   rating:
     driver: bridge
-    internal: true
+    # internal: true
 
   library:
     driver: bridge
