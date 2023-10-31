@@ -16,7 +16,7 @@ import (
 	"github.com/migregal/bmstu-iu7-ds-lab2/apiserver/core/ports/rating"
 	"github.com/migregal/bmstu-iu7-ds-lab2/pkg/readiness"
 	"github.com/migregal/bmstu-iu7-ds-lab2/pkg/readiness/httpprober"
-	"github.com/migregal/bmstu-iu7-ds-lab2/pkg/retryer"
+	retryer "github.com/migregal/bmstu-iu7-ds-lab2/pkg/retryer/inmemory"
 	v1 "github.com/migregal/bmstu-iu7-ds-lab2/rating/api/http/v1"
 )
 
