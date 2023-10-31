@@ -1,6 +1,7 @@
 package retryer
 
 import (
+	"log/slog"
 	"slices"
 	"sync"
 	"time"
@@ -13,18 +14,20 @@ type Client[T any] struct {
 	start sync.Once
 }
 
-func New[T any]() *Client[T] {
-	return &Client[T]{}
+func New[T any]() (*Client[T], error) {
+	return &Client[T]{}, nil
 }
 
-func (c *Client[T]) Append(v T) {
+func (c *Client[T]) Append(v T) error {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 
 	c.queue = append(c.queue, v)
+
+	return nil
 }
 
-func (c *Client[T]) Start(f func(T)) {
+func (c *Client[T]) Start(f func(T) error) error {
 	try := func() {
 		c.mx.Lock()
 
@@ -39,7 +42,11 @@ func (c *Client[T]) Start(f func(T)) {
 
 		c.mx.Unlock()
 
-		f(i)
+		if err := f(i); err != nil {
+			if err := c.Append(i); err != nil {
+				slog.Error("failed to append to inmem queue", "err", err)
+			}
+		}
 	}
 
 	c.start.Do(func() {
@@ -52,4 +59,6 @@ func (c *Client[T]) Start(f func(T)) {
 			}
 		}()
 	})
+
+	return nil
 }

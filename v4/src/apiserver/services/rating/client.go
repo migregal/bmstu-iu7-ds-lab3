@@ -50,6 +50,11 @@ func New(lg *slog.Logger, cfg rating.Config, probe *readiness.Probe) (*Client, e
 		}).
 		SetBaseURL(fmt.Sprintf("http://%s", net.JoinHostPort(cfg.Host, cfg.Port)))
 
+	r, err := retryer.New[ratingChange]()
+	if err != nil {
+		return nil, fmt.Errorf("retryer: %w", err)
+	}
+
 	c := Client{
 		lg: lg,
 		cb: gobreaker.NewCircuitBreaker(gobreaker.Settings{
@@ -57,7 +62,7 @@ func New(lg *slog.Logger, cfg rating.Config, probe *readiness.Probe) (*Client, e
 			Timeout:     time.Second,
 			MaxRequests: cfg.MaxFails,
 		}),
-		retryer: retryer.New[ratingChange](),
+		retryer: r,
 		conn:    client,
 	}
 
@@ -122,21 +127,25 @@ func (c *Client) UpdateUserRating(
 	if err != nil {
 		c.lg.Warn("failed to update rating", "err", err, "username", username)
 
-		c.retryer.Append(ratingChange{
+		err := c.retryer.Append(ratingChange{
 			username: username,
 			diff:     diff,
 		})
-		c.retryer.Start(c.retryUpdate)
+		if err != nil {
+			return fmt.Errorf("append to retryer: %w", err)
+		}
+
+		err = c.retryer.Start(c.retryUpdate)
+		if err != nil {
+			return fmt.Errorf("start queue: %w", err)
+		}
 	}
 
 	return nil
 }
 
-func (c *Client) retryUpdate(v ratingChange) {
-	err := c.updateUserRating(context.Background(), v.username, v.diff)
-	if err != nil {
-		c.retryer.Append(v)
-	}
+func (c *Client) retryUpdate(v ratingChange) error {
+	return c.updateUserRating(context.Background(), v.username, v.diff)
 }
 
 func (c *Client) updateUserRating(
